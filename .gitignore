@@ -1,0 +1,51 @@
+# .gitignore itself — not tracked in remote
+.gitignore
+
+# 本地私有区（2026-11-02 整理）：调试残留 / 日志 / 备份 / 密钥配置 / 旧数据归档
+# 这些文件留在本机，绝不入库、绝不随仓库分发
+_local/
+
+# Config file (contains API keys)
+config.yaml
+
+# 备份文件
+*.bak
+*.bak_*
+
+# Data / working files — not tracked in git
+data/
+data_old/
+data_old2/
+data_old3/
+
+# Temp scripts and output
+output/
+
+*.h5
+__pycache__/
+*.pyc
+*.pyo
+.venv*/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 2026-09-10 清理：防密钥/日志误入库
+config.yaml.bak*
+*.log
+.pi-tmp-*
+.progress.md
+
+# 归档区（本地留存，不入仓库）
+_archive/
+
+# litread 文献阅读平台前端
+webapp/frontend/node_modules/
+webapp/frontend/dist/

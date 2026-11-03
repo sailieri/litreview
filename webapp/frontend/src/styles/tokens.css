@@ -1,0 +1,174 @@
+/* ── litread 设计令牌（唯一视觉真相源，暗色优先） ───────────────── */
+
+:root {
+  --font-sans: "Segoe UI", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Iowan Old Style", "Source Serif 4", Georgia, "Times New Roman", "Noto Serif SC", "Songti SC", serif;
+  --font-mono: Consolas, "SFMono-Regular", "Liberation Mono", monospace;
+
+  --accent: #7c9cff;
+  --accent-2: #9d7bff;
+  --ok: #5fd0a5;
+  --warn: #e6b455;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  --t-fast: 0.15s ease;
+  --t-med: 0.25s ease;
+}
+
+[data-theme="dark"] {
+  --bg: #0e1014;
+  --bg-panel: #12151b;
+  --bg-elev: #171b23;
+  --bg-hover: #1d222c;
+  --line: #262c38;
+  --line-strong: #333b4a;
+  --text: #e7e9ee;
+  --text-dim: #9aa3b2;
+  --text-faint: #6b7382;
+  --accent-soft: rgba(124, 156, 255, 0.14);
+  --cite-bg: rgba(124, 156, 255, 0.16);
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --pdf-bg: #2a2e36;
+}
+
+[data-theme="light"] {
+  --bg: #f6f6f3;
+  --bg-panel: #ffffff;
+  --bg-elev: #ffffff;
+  --bg-hover: #f0f1f4;
+  --line: #e5e4de;
+  --line-strong: #d5d4cc;
+  --text: #22242a;
+  --text-dim: #666b76;
+  --text-faint: #9aa0ab;
+  --accent-soft: rgba(70, 110, 235, 0.10);
+  --cite-bg: rgba(70, 110, 235, 0.12);
+  --shadow: 0 10px 26px rgba(30, 34, 44, 0.10);
+  --pdf-bg: #e9e9e6;
+}
+
+* , *::before, *::after { box-sizing: border-box; }
+
+html, body, #app { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
+input, select, textarea { font: inherit; color: inherit; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── 基础组件样式 ─────────────────────────────── */
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.chip.plain { background: var(--bg-hover); color: var(--text-dim); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 13.5px;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.btn:hover { background: var(--bg-hover); }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b0d12;
+  font-weight: 600;
+}
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--text-dim); }
+.btn.ghost:hover { background: var(--bg-hover); color: var(--text); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.input {
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  outline: none;
+  transition: border-color var(--t-fast);
+}
+.input:focus { border-color: var(--accent); }
+
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+
+/* 引用标记 [S1] [E2] */
+.cite {
+  display: inline-block;
+  padding: 0 5px;
+  margin: 0 1px;
+  border-radius: 4px;
+  background: var(--cite-bg);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  vertical-align: 1px;
+}
+.cite:hover { filter: brightness(1.15); }
+
+/* 阅读排版：正文衬线 */
+.prose {
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  line-height: 1.95;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 15px; height: 15px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}

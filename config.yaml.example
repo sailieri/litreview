@@ -1,0 +1,187 @@
+# litreview 配置模板
+#
+# 用法：
+#     cp config.yaml.example config.yaml     # 再按需修改；config.yaml 已在 .gitignore 中，不会入库
+#
+# 设计原则：
+#   1. 本文件是**唯一**配置入口。代码里不出现 URL / IP / 端口 / 密钥 / 绝对路径。
+#   2. `${VAR}` / `${VAR:-默认}` 会展开成环境变量，密钥建议这样写，避免明文。
+#   3. 所有键都可省略，省略即用 modules/config.py 的 DEFAULTS。
+#
+# 分组：data_root → providers → steps → embedding → judge → webapp → sources → paths
+#      （endpoints 只在启用中英对照翻译时才需要）
+
+# ── 数据根目录 ─────────────────────────────────────────────
+# 空 = <仓库根>/data。切换数据集只改这一行（或设环境变量 LITREVIEW_DATA）。
+data_root: ""
+
+# ── 模型端点（任意 OpenAI 兼容服务）────────────────────────
+# 每个 provider 需要 base_url / api_key / models；之后在 steps 里按名字引用。
+providers:
+  deepseek:
+    base_url: https://api.deepseek.com/v1
+    api_key: ${DEEPSEEK_API_KEY}          # 也可直接写 sk-xxx（不推荐入库）
+    models:
+      default: deepseek-chat
+      strong: deepseek-reasoner
+
+  # 本地/自建推理端点示例（不用可整段删）
+  # local:
+  #   base_url: http://127.0.0.1:8000/v1
+  #   api_key: ${LOCAL_API_KEY:-none}
+  #   models:
+  #     default: Qwen/Qwen3-32B-Instruct
+
+# ── 各步骤用哪个 provider / model ──────────────────────────
+# steps 分三组：建库 / 检索问答 / 撰写审稿。键名必须与代码一致，不能随意改名。
+steps:
+  # ── 建库（Phase 1）──
+  metadata:                  # 从原文抽题录（标题/作者/年份/期刊/DOI）
+    provider: deepseek
+    model: default
+    temperature: 0.1
+    max_tokens: 8192
+    timeout: 300
+  normalize:                 # 原文 → 规范 markdown（窗口最长、最耗时；用 strong 更稳但更贵更慢）
+    provider: deepseek
+    model: default
+    temperature: 0.1
+    max_tokens: 65536
+    timeout: 900
+  summary:                   # 单篇叙事摘要
+    provider: deepseek
+    model: default
+    temperature: 0.2
+    max_tokens: 2048
+    timeout: 300
+  extract_hyper:             # 超图实体 + 超边（单轮抽取）
+    provider: deepseek
+    model: default
+    temperature: 0.1
+    max_tokens: 16384
+    timeout: 600
+  extract:                   # 单篇完整管线（抽取 + 校验，供 batch_extract_all 用）
+    provider: deepseek
+    model: default
+    temperature: 0.1
+    max_tokens: 32768
+    timeout: 300
+  refine:                    # A-C 自优化（Actor 产出 → Critic 挑错 → 修补）
+    provider: deepseek
+    model: default
+    temperature: 0.1
+    max_tokens: 8192
+    timeout: 600
+  merge:                     # 实体合并判定（批量比较同簇实体是否同一概念）
+    provider: deepseek
+    model: default
+    temperature: 0.1
+    max_tokens: 16384
+    timeout: 180
+
+  # ── 检索问答 ──
+  rag:                       # 库问答（检索 + 归纳，产出 [S#]/[E#] 引用）
+    provider: deepseek
+    model: default
+    temperature: 0.1
+    max_tokens: 4096
+    timeout: 600
+  paper_qa:                  # 单篇精读问答
+    provider: deepseek
+    model: default
+    temperature: 0.3
+    max_tokens: 4096
+    timeout: 600
+  agent:                     # 综述主管线里的工具调用型智能体（模式 A）
+    provider: deepseek
+    model: default
+    temperature: 0.3
+    max_tokens: 32768
+    timeout: 900
+  socratic:                  # 追问者（独立视角，专门挑漏洞）
+    provider: deepseek
+    model: default
+    temperature: 0.4
+    max_tokens: 8192
+    timeout: 600
+
+  # ── 撰写与审稿 ──
+  review:                    # 并行审稿团的通用 reviewer（想更严格可换 strong）
+    provider: deepseek
+    model: default
+    temperature: 0.3
+    max_tokens: 16384
+    timeout: 300
+  review_local:              # 审稿团的本地模型（钱少但快，可删）
+    provider: deepseek
+    model: default
+    temperature: 0.3
+    max_tokens: 8192
+    timeout: 600
+  compile:                   # 初稿 → 成稿（表达层转写；这一步用 strong 收益最明显）
+    provider: deepseek
+    model: default
+    temperature: 0.4
+    max_tokens: 16384
+    timeout: 900
+
+# ── 向量模型 ───────────────────────────────────────────────
+# 两种用法：填 base_url（OpenAI 兼容 /api/embed），或留空让 candidates 逐个探活。
+embedding:
+  base_url: http://127.0.0.1:11434        # 例：本地 ollama；空则用 candidates
+  api_key: ${EMBEDDING_API_KEY:-ollama}
+  model: qwen3-embedding:0.6b
+  dim: 1024                               # 必须与模型输出维度一致，改了要重算全库向量
+  candidates:
+    - http://127.0.0.1:11434
+
+# ── 实体分簇判官（可选）────────────────────────────────────
+# 只做一件事：判断两个词是否同一实体的不同写法。留空则不启用 LLM 复核，纯靠聚类阈值。
+judge:
+  base_url: ""
+  api_key: ""
+  workers: 16
+  instruct: |-
+    Are term1 and term2 different spellings of the same entity? Answer true only for
+    abbreviations, full forms, plurals, case or punctuation differences. Answer false for
+    related but distinct concepts, parent-child terms, and names that differ by numbers,
+    ranges or qualifiers.
+
+# ── Web / MCP 服务 ─────────────────────────────────────────
+webapp:
+  host: 127.0.0.1             # 局域网共享改成 0.0.0.0
+  port: 8790
+  mcp_host: 127.0.0.1
+  mcp_port: 8791
+  mcp_token: ${LITREAD_MCP_TOKEN}   # 留空=不鉴权（仅本机可用）；局域网务必设值
+  secrets_file: ""                 # 可选：从 env 文件补 token
+  web_base: ""                     # 空 = http://127.0.0.1:<port>
+  translate_engine: wsidx          # 中英对照引擎：wsidx=专用翻译模型 / ws=通用大模型
+  translate_model_idx: index-translate-2b
+
+# ── 外部推理地址（可选，仅中英对照功能用）──────────────────
+# 只用 pdf2zh 翻译时才需要；不填则翻译按钮不可用。
+endpoints:
+  workstation_lan: ""
+  workstation_cf: ""
+  workstation_lan_idx: ""
+  workstation_cf_idx: ""
+
+# ── 第三方文献元数据 API（可换镜像）────────────────────────
+sources:
+  openalex: https://api.openalex.org
+  crossref: https://api.crossref.org
+  unpaywall: https://api.unpaywall.org
+  semanticscholar: https://api.semanticscholar.org
+  arxiv_api: http://export.arxiv.org/api/query
+  arxiv_pdf: https://arxiv.org/pdf
+  doi: https://doi.org
+  mailto: you@example.org        # OpenAlex/Unpaywall 要求带邮箱，填自己的
+  proxy: ""                      # 需要代理时填 http://127.0.0.1:7890
+
+# ── 可选路径覆盖 ───────────────────────────────────────────
+paths:
+  tmp_dir: ""                    # 空 = 系统临时目录
+  pdfs_dir: ""                   # 空 = <data_root>/pdfs
+  pdf2zh_python: ""              # 中英对照：装了 pdf2zh_next 的 venv python
+  pdf2zh_dirs: []                # 或在若干候选目录里找 <dir>/zotero-pdf2zh-next-venv
