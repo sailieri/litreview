@@ -28,7 +28,36 @@ sys.path.insert(0, str(ROOT))
 from modules.database.schema import backup_db  # noqa: E402
 from modules.database.schema import get_db, init_db, DB_PATH           # noqa: E402
 from modules.database import hyper_write as hw                          # noqa: E402
+from modules.ingest_status import set_stage                             # noqa: E402
 from modules.paths import entities_dir                                  # noqa: E402
+
+
+def sync_status(conn, pid: int, entities: int | None = None,
+                hyperedges: int | None = None) -> None:
+    """把超图导入结果同步进 ingest_status（失败不阻断）。
+
+    此前该脚本从不写状态表 → 实体/超边已落库但 entities_done 仍为 0，
+    前端面板据此显示「未完成」、批量模式又反复重导同一篇。
+    """
+    try:
+        import json as _json
+        ec = entities
+        if ec is None:
+            ec = conn.execute("SELECT COUNT(*) FROM entities WHERE paper_id=?",
+                              (pid,)).fetchone()[0]
+        hc = hyperedges
+        if hc is None:
+            hc = 0
+            for (sp,) in conn.execute("SELECT source_papers FROM hyperedges"):
+                try:
+                    if pid in _json.loads(sp or "[]"):
+                        hc += 1
+                except (ValueError, TypeError):
+                    pass
+        set_stage(pid, conn=conn, entities_done=ec > 0, entity_count=ec,
+                  hyperedges_done=hc > 0, hyperedge_count=hc)
+    except Exception as e:  # noqa: BLE001
+        print(f"[status] ingest_status 写入失败（不阻断）: {e}")
 
 
 
@@ -72,6 +101,7 @@ def run_single(args) -> int:
         else:
             print(f"[skip] paper {pid} 已有 {existing} 实体，跳过插入（幂等）。"
                   f"加 --update 可覆盖重导入。")
+            sync_status(conn, pid, entities=existing)
             conn.close()
             if not args.no_merge:
                 auto_merge([pid])
@@ -80,6 +110,7 @@ def run_single(args) -> int:
     stat = hw.insert_one(conn, pid, stem, items, hes)
     print(f"[import] 实体 {stat['entities']} 个（含论文实体）; 超边 {stat['hyperedges']} 条")
     v = hw.vectorize_paper(conn, pid)
+    sync_status(conn, pid, entities=stat["entities"], hyperedges=stat["hyperedges"])
     conn.close()
     print(f"[embed] 实体 {v['ent_ok']}/{v['ent_total']}; 超边 {v['he_ok']}/{v['he_total']}")
     print("\n超图入库完成。")
@@ -122,6 +153,7 @@ def run_batch(args) -> int:
             items, hes = hw.load_hyper_json(stem)
             stat = hw.insert_one(conn, pid, stem, items, hes)
             v = hw.vectorize_paper(conn, pid)
+            sync_status(conn, pid, entities=stat["entities"], hyperedges=stat["hyperedges"])
             ok += 1
             tot_e += v["ent_ok"]
             tot_h += v["he_ok"]

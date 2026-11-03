@@ -415,7 +415,8 @@ g = gap_check("minimum crop residue retention rate soil carbon threshold", top_p
 **三个必须注意的点**：① fts5 默认 unicode61 把中文整段切一个 token，中文查询全部漏 → `_seg()` 自分词（中文2-gram+英文整词）存取同构；② 分词索引必须**应用层双写**（SQL 触发器调不了 Python 分词），且改版时要 `DROP TRIGGER IF EXISTS` 旧触发器——否则它先占 rowid、应用层再插报 `IntegrityError: constraint failed`；③ 验证 SSE/中文数据别用 Windows 侧 Python 读 curl 输出（GBK 解码 UTF-8 会把 500 字撑成 765、打印报错），用 `sys.stdin.buffer.read().decode('utf-8')`。
 
 **中英对照（复用 zotero-pdf2zh）**——PdfPane 工具栏「原文｜对照」切换 + 「生成对照」按钮（按需翻译，读到哪篇译哪篇，不预跑全库）：
-- **引擎**：外部可选依赖 `pdf2zh_next`（独立 venv）。查找顺序：`config.yaml` 的 `paths.pdf2zh_python` → 仓库内 `.venv-pdf2zh` → `paths.pdf2zh_dirs` 下的 venv；都没配则中英对照按钮不可用。CLI 直调，无需常驻服务；默认免费翻译通道，en→zh-CN，一篇约 6 分钟。上游：https://github.com/Byaidu/PDFMathTranslate
+- **引擎**：外部可选依赖 `pdf2zh_next`（独立 venv，**第三方项目 PDFMathTranslate，AGPL-3.0**，与本仓库 MIT 不同；本仓库只以外部命令调用它的 CLI，不包含也不改编其源码）。查找顺序：`config.yaml` 的 `paths.pdf2zh_python` → 仓库内 `.venv-pdf2zh` → `paths.pdf2zh_dirs` 下的 venv；都没配则中英对照按钮不可用。CLI 直调，无需常驻服务；一篇约 6 分钟。上游：https://github.com/PDFMathTranslate/PDFMathTranslate
+- **翻译模型（第 4 个模型）**：纯排版重建交给 pdf2zh_next，译文由 OpenAI 兼容端点产出——`webapp.translate_engine=wsidx` 走专用小模型（模型名 `translate_model_idx`，端点 `endpoints.workstation_*_idx`），`ws` 走 `providers.workstation` 的通用模型。端点与 key 全部来自 `config.yaml`。
 - **后端**（`webapp/server.py` `_run_bilingual`）：POST 起 daemon 线程 → 拷 `data/translated/{pid}.src.pdf`（ASCII 工作副本，避开中文/长文件名）→ exe 产出 `{pid}.src.no_watermark.zh-CN.dual.pdf` → `replace` 成 `{pid}.zh.pdf` 缓存（二次访问零成本，持久化纯中文 mono），中间 mono/工作副本自动清，`{pid}.log` 留排障；pdf2zh 子进程参数走 `_winarg()`（保留作跨平台兼容，Windows 下 no-op）
 - **前端**：`bilChecked` 后才渲染控件，2.5s 轮询 running，生成完成自动切到对照版；pid 切换重置状态
 - **实测**：烟测 5m41s 出 8 页 dual，第 2 页 1009 中文字符+英文原文并排

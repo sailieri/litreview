@@ -62,13 +62,28 @@ python tools/cost_calculator.py --papers 50   # 换成你的篇数；--peak / --
 
 ## 前置要求
 
+### 模型（一共 4 个，后两个可选）
+
+| # | 模型 | 干什么 | 必需性 | 配在哪 |
+|---|---|---|---|---|
+| 1 | **主对话 LLM** | 规范化、超图抽取、问答、写稿、审稿 | 必需 | `providers` + `steps`（任一 OpenAI 兼容端点：DeepSeek / vLLM / Ollama） |
+| 2 | **Embedding** | 语义检索（BM25 之外那一路） | 强烈建议 | `embedding`（默认连本机 ollama `qwen3-embedding:0.6b`）。没配也能跑，向量为空、检索退化成纯关键词——**不报错，只是变差** |
+| 3 | **决策模型**（判官） | 实体合并时判「两个词是不是同一实体」 | 可选 | `judge`。留空则纯靠聚类阈值，不漏不错只是略粗 |
+| 4 | **翻译模型** | 网页「中英对照」把英文 PDF 译成中文 | 可选 | `providers.workstation` + `endpoints.*_idx` + `webapp.translate_*` |
+
+> 第 4 个模型只是「由谁来译」。真正的排版保持与 PDF 重建由第三方项目
+> [PDFMathTranslate](https://github.com/PDFMathTranslate/PDFMathTranslate)（**AGPL-3.0**）完成，
+> 本仓库只提供薄驱动 `webapp/pdf2zh_vllm_driver.py`，以外部命令方式调用、**不包含也不改编其源码**。
+> 要用它：另建一个 venv 装 `pdf2zh_next`，路径填到 `paths.pdf2zh_python`（或放 `paths.pdf2zh_dirs` 下）。
+> 不装 / 不配 → 网页上的「生成对照」按钮不可用，其余功能一律不受影响。
+
+### 环境
+
 | 依赖 | 必需性 | 说明 |
 |---|---|---|
 | **Python 3.12+** | 必需 | `numpy 2.5` 要 3.12、`scikit-learn 1.9` 要 3.11，3.10/3.11 会装不上；推荐 3.13 |
-| **LLM API**（OpenAI 兼容） | 必需 | DeepSeek / 本地 vLLM / Ollama 都行，填在 `config.yaml` 的 `providers` |
-| **Embedding 服务** | 强烈建议 | 默认连本机 ollama（`http://127.0.0.1:11434`，模型 `qwen3-embedding:0.6b`）。没装也能跑，但向量为空、检索退化成纯关键词（**不会报错，只会变差**） |
 | **Node 18+** | 仅网页 | `cd webapp/frontend && npm install && npm run build`；仓库不含 `dist/` |
-| pdf2zh_next | 可选 | 只有中英对照（原文/译文对照阅读）需要 |
+| pdf2zh_next | 可选 | 仅中英对照需要，独立 venv（与主环境 starlette 版本冲突，不能合并） |
 
 ## 快速上手
 

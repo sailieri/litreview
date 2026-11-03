@@ -156,16 +156,28 @@ webapp:
   mcp_token: ${LITREAD_MCP_TOKEN}   # 留空=不鉴权（仅本机可用）；局域网务必设值
   secrets_file: ""                 # 可选：从 env 文件补 token
   web_base: ""                     # 空 = http://127.0.0.1:<port>
-  translate_engine: wsidx          # 中英对照引擎：wsidx=专用翻译模型 / ws=通用大模型
-  translate_model_idx: index-translate-2b
+  # ── 第 4 个模型：翻译模型（可选，仅网页「中英对照」用）──
+  # 真实翻译由第三方项目 PDFMathTranslate 执行（AGPL-3.0，见下），
+  # 本仓库只提供薄驱动 webapp/pdf2zh_vllm_driver.py（调它的 CLI，不改其源码）。
+  # 没装 pdf2zh_next 或没配端点 → 网页「生成对照」按钮不可用，其余功能不受影响。
+  translate_engine: wsidx          # wsidx=专用翻译小模型（快、便宜） / ws=通用大模型（质量高但慢且贵）
+  translate_model_idx: index-translate-2b   # wsidx 模式下用的模型名（部署在下面的 idx 端点上）
 
-# ── 外部推理地址（可选，仅中英对照功能用）──────────────────
-# 只用 pdf2zh 翻译时才需要；不填则翻译按钮不可用。
+# ── 翻译端点（可选，仅中英对照功能用）──────────────────────
+# 翻译模型走 OpenAI 兼容接口，来源有两处：
+#   1) providers.workstation 的 base_url / api_key（必填，否则不启用）
+#   2) 下面四个可选地址：配了先试局域网直连，探测不通自动回落到 1) 的 base_url
+# 对应关系：wsidx 模式读 *_idx 两个，ws 模式读 workstation_lan / workstation_cf。
+#
+# 第三方依赖声明（请在使用前知悉）：
+#   PDFMathTranslate（https://github.com/PDFMathTranslate/PDFMathTranslate）
+#   许可证 AGPL-3.0，与本仓库的 MIT 不同；本仓库以「外部命令」方式调用，
+#   不包含也不衍生其源代码。若你要分发包含它的环境或改造它，请自行遵守 AGPL。
 endpoints:
-  workstation_lan: ""
-  workstation_cf: ""
-  workstation_lan_idx: ""
-  workstation_cf_idx: ""
+  workstation_lan: ""             # ws 模式：局域网直连地址，如 http://192.168.1.10:8000/v1
+  workstation_cf: ""              # ws 模式：外网/隧道地址
+  workstation_lan_idx: ""         # wsidx 模式：专用翻译模型的局域网地址
+  workstation_cf_idx: ""          # wsidx 模式：专用翻译模型的外网地址
 
 # ── 第三方文献元数据 API（可换镜像）────────────────────────
 sources:
