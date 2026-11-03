@@ -20,6 +20,7 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import fitz  # pymupdf
 import numpy as np
+from modules.paths import extracted_dir, normalized_dir  # noqa: E402
 try:
     from rapidocr_onnxruntime import RapidOCR
 except ImportError:  # 可选依赖：只有扫描件 OCR 才需要，导入本模块不应因此中断
@@ -47,8 +48,6 @@ def ocr_page(engine, page, dpi):
 
 
 def main():
-    if RapidOCR is None:
-        sys.exit(_OCR_HINT)
     ap = argparse.ArgumentParser()
     ap.add_argument('pdf')
     ap.add_argument('--stem', default=None)
@@ -57,6 +56,9 @@ def main():
     ap.add_argument('--start-page', type=int, default=0)
     ap.add_argument('--end-page', type=int, default=0)
     a = ap.parse_args()
+
+    if RapidOCR is None:
+        sys.exit(_OCR_HINT)
 
     pdf = Path(a.pdf)
     stem = a.stem or pdf.stem
@@ -73,8 +75,8 @@ def main():
         print(f'  page {i+1}: {len(txt)} 字符', flush=True)
 
     raw = '\n\n'.join(chunks)
-    EXT = ROOT / 'data' / 'extracted'
-    NORM = ROOT / 'data' / 'normalized'
+    EXT = extracted_dir()
+    NORM = normalized_dir()
     EXT.mkdir(parents=True, exist_ok=True)
     NORM.mkdir(parents=True, exist_ok=True)
     (EXT / f'{stem}_raw.md').write_text(raw, encoding='utf-8')

@@ -13,12 +13,15 @@ from modules.extraction_state import (
     get_db, migrate_extraction_tracking,
     paper_id_for_stem, record_extraction, bump_ac_rounds,
 )
+from modules.paths import (
+    normalized_dir, entities_dir, summaries_dir, metadata_dir,
+)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-NORM_DIR = ROOT / "data" / "normalized"
-ENTITIES_DIR = ROOT / "data" / "entities"
-SUMMARIES_DIR = ROOT / "data" / "summaries"
-META_DIR = ROOT / "data" / "metadata"
+NORM_DIR = normalized_dir()
+ENTITIES_DIR = entities_dir()
+SUMMARIES_DIR = summaries_dir()
+META_DIR = metadata_dir()
 
 TARGET_AC = 2        # A-C 增强目标轮数（每成功一轮在 papers.ac_rounds +1）
 BATCH_SIZE = 4       # 并行数

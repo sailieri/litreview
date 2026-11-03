@@ -20,9 +20,9 @@ ROOT = next(p for p in Path(__file__).resolve().parents
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-SRC = Path(os.environ.get('LITREVIEW_SRC') or (ROOT / 'data'))
 from modules.paths import data_root, extracted_dir  # noqa: E402
 DATA = data_root()
+SRC = Path(os.environ.get('LITREVIEW_SRC') or DATA)
 
 
 def stems():
