@@ -1,5 +1,9 @@
 # litreview
 
+[![ci](https://github.com/sailieri/litreview/actions/workflows/ci.yml/badge.svg)](https://github.com/sailieri/litreview/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+
 从 PDF 到结构化知识库、再到综述终稿的全流程管线。**同一个 skill 支持两种运行方式**——用内置主智能体一键跑，或加载到你自己常用的 coding agent 里（pi / Claude Code / Codex / Cursor…），由它来担任主智能体。
 
 📖 **完整手册见 [`skill/SKILL.md`](skill/SKILL.md)**：两种运行模式的步骤对照、脚本契约、文件契约、写作纪律。全部文档都在 `skill/`。本 README 只给概览与快速上手。
