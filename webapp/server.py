@@ -368,7 +368,8 @@ def insights():
 
     conn = db()
     overview = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-                for t in ("papers", "sections", "chunks", "entities", "hyperedges")}
+                for t in ("papers", "sections", "chunks", "entities", "hyperedges",
+                          "cross_doc_hyperedges")}
     yearly = [{"year": str(r["year"]), "count": r["c"]} for r in conn.execute(
         "SELECT year, COUNT(*) AS c FROM papers WHERE year IS NOT NULL AND year != '' "
         "GROUP BY year ORDER BY year").fetchall()]

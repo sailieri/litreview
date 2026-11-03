@@ -20,10 +20,6 @@
           <div class="n">{{ fmt(c.v) }}</div>
           <div class="l">{{ c.k }}</div>
         </div>
-        <div class="card c">
-          <div class="n">{{ data.year_span[0] }}–{{ data.year_span[1] }}</div>
-          <div class="l">年份跨度</div>
-        </div>
       </section>
 
       <!-- 年度趋势 + 期刊分布 -->
@@ -112,7 +108,8 @@ const cards = computed(() => {
   return [
     { k: '论文', v: o.papers }, { k: '章节', v: o.sections },
     { k: '文本分块', v: o.chunks }, { k: '实体', v: o.entities },
-    { k: '跨文献超边', v: o.hyperedges },
+    { k: '超边（单篇）', v: o.hyperedges },
+    { k: '跨文献超边', v: o.cross_doc_hyperedges },
   ]
 })
 const journals10 = computed(() => (data.value?.journals || []).slice(0, 10))
