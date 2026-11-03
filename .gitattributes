@@ -1,0 +1,2 @@
+# 统一换行：仓库内存 LF，检出也用 LF（Windows 上的编辑器均支持）
+* text=auto eol=lf
