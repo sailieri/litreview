@@ -33,6 +33,15 @@ Phase 1 · 建库                         Phase 2 · 撰写（轮次制）
 
 两种模式**共用同一套步骤、脚本与文件契约**，产物逐字节同构，可随时互相接手。替换的只是"写综述"这个身份；检索/追问/审稿这些"简单几步"的活可交给脚本（默认实现），也可自己顺手做。
 
+**把 skill 装进你自己的 agent**（只有模式 B 需要）：`skill/` 是标准的 `SKILL.md`（带 name/description frontmatter），拷到对应目录即可：
+
+```bash
+mkdir -p ~/.claude/skills/litreview && cp -r skill/* ~/.claude/skills/litreview/   # Claude Code
+mkdir -p ~/.pi/agent/skills/litreview && cp -r skill/* ~/.pi/agent/skills/litreview/  # pi
+```
+
+若你的 agent 没有 skill 机制，直接把 `skill/SKILL.md` 当 SOP 贴进上下文也成立——它本身就是一份可执行的作业手册。
+
 ## 💰 成本提醒（跑前必读）
 
 本管线一次「建库 + 3 轮综述」是**真金白银**：以 50 篇论文、DeepSeek 空闲档计，全程 DeepSeek ≈ **¥11**（v4-pro ≈ ¥44；高峰时段 ×2）；若检索/审稿走自建推理，成本可降到 ≈ ¥1。库越大建库越贵（严格线性 ≈¥0.14/篇，300 篇全 DeepSeek 重建 ≈ ¥42），综述部分与篇数基本无关。**跑批前先估算**：
