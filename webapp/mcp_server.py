@@ -454,7 +454,7 @@ def get_import_status(job_id: str = "", paper_id: int = 0) -> str:
     """查入库进度：传 job_id 看导入任务，或传 paper_id 看某篇论文的 8 阶段状态。
 
     Args:
-        job_id: import_pdf 返回的任务 id
+        job_id: 网页「导入」产生的任务 id（MCP 不提供上传工具，PDF 需在网页上传）
         paper_id: 论文 id（形如 #12 里的数字）
     """
     if not job_id and not paper_id:
