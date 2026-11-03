@@ -9,7 +9,7 @@
   5) difflib 相似度 ≥ 0.85                        → 疑似重复
   6) 以上都不中                                    → 新文献（未入库）
 
-用法：.venv/Scripts/python.exe tools/maintain/orphans.py dups [--json]
+用法：python tools/maintain/orphans.py dups [--json]
 """
 import difflib
 import json

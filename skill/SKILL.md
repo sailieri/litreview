@@ -6,7 +6,7 @@ tags: [literature-review, hypergraph, rag, multi-agent, review, human-in-the-loo
 
 # litreview: 文献综述系统
 
-两阶段架构：**先建知识库，再基于知识库写综述**。撰写阶段（**V2.3**，2026-09-08 起为当前唯一主路径）是**轮次制**的：每一轮 = 查库调研 → 写初稿 → 独立追问 → 硬断言 → 写定稿 → 并行审核；**跑完一次审核就是一轮结束**（`round += 1`），所有中间产物带轮次号、跨轮复用、禁止跨轮覆盖。
+两阶段架构：**先建知识库，再基于知识库写综述**。撰写阶段是**轮次制**的：每一轮 = 查库调研 → 写初稿 → 独立追问 → 硬断言 → 写定稿 → 并行审核；**跑完一次审核就是一轮结束**（`round += 1`），所有中间产物带轮次号、跨轮复用、禁止跨轮覆盖。
 
 **同一个 skill 支持两种运行方式**：内置主智能体（`pipelines/review/main_agent.py`）或**自带智能体**（你加载本 skill，自己当主智能体）——步骤、脚本、文件契约完全相同，差别只在【谁来做需要思考的那几步】。先读下一节选定模式。
 
@@ -136,7 +136,7 @@ data/reviews/
 
 **两种用法下人工审核的时机**：用你自己的智能体时，直接跟它对话即可；用内置主智能体（托管）时，把意见写进 `human_review_filled.md`，下次送审自动并入 F_human 槽位。
 
-### 💰 成本透明（跑前必读，2026-09-15 标定）
+### 💰 成本透明（跑前必读）
 
 **本管线是重上下文任务**（主智能体累积历史 + kb_qa 全库题录注入 + 全文规范化重写），一次全流程是真实开销。`pipelines/review/main_agent.py` 启动时会自动打印两行预估；精确明细用计算器：
 
@@ -147,7 +147,7 @@ python tools/cost_calculator.py --papers 50 --model pro   # v4-pro：≈¥44；p
 python tools/cost_calculator.py --papers 50 --profile current  # 当前 config 混合口径：≈¥1.1
 ```
 
-关键结论：① 输出 token 是大头（缓存命中价 ¥0.02/M 几乎白送，勿把省钱努力错放在压输入）；② 综述成本与篇数基本无关（kb 检索有截断），篇数只影响建库；③ 当前 config 下建库/kb_qa/审稿/probe/gap_audit 全走工作站 Qwen（免费），DeepSeek 实付只有 main_agent + compile。token 常数与不确定度（±30%）见 `tools/cost_calculator.py` 文件头。
+关键结论：① 输出 token 是大头（缓存命中价 ¥0.02/M 几乎白送，勿把省钱努力错放在压输入）；② 综述成本与篇数基本无关（kb 检索有截断），篇数只影响建库；③ 把建库/kb_query/审稿/probe/gap_audit 指向本地自建推理端点时，这些步骤开销≈ 0，实付只剩写稿与定稿转写。token 常数与不确定度（±30%）见 `tools/cost_calculator.py` 文件头。
 
 ---
 
@@ -296,7 +296,7 @@ litreview/
     └── pdfs/ extracted/ normalized/ summaries/ entities/  # 建库中间产物
 
 _archive/                          # 本地归档（不入仓库）：legacy_v1_v21/（V1/V2.1 撰写管线）、
-                                   # 2026-09-10_cleanup/（一次性脚本、题录清单、旧快照里主库缺的 PDF）
+                                   # 一次性脚本、题录清单、旧快照里主库缺的 PDF
 ```
 
 ## 数据库
@@ -369,11 +369,11 @@ children = get_section_children(pid=5, sid=22)
 path = get_section_path(pid=5, sid=28)
 ```
 
-**连字符处理：** `search_chunks("GWO-DAGRU feature")` 自动将带连字符的术语包装为短语查询；同时会**滤掉停用词与 <3 字符的短词**（2026-09-11：不过滤时一个 34 词长查询会命中 85.8% 的 chunk，BM25 形同噪声）。
+**连字符处理：** `search_chunks("GWO-DAGRU feature")` 自动将带连字符的术语包装为短语查询；同时会**滤掉停用词与 <3 字符的短词**（不过滤时一个 34 词长查询会命中 85.8% 的 chunk，BM25 形同噪声）。
 
 **默认返回数量：** `search_chunks` / `search` 的 chunks 默认 `top_k=10`；`search_hyperedges` / `search` 的 edges 默认 `top_k=10`。可按查询需要显式调大/调小。
 
-**2026-09-11 新增（针对“库里有却检索不到”）：**
+**针对“库里有却检索不到”：**
 
 ```python
 # 1) 多子查询合并检索：复合问题拆成原子子查询，各算名次后 RRF 合并（比单条长查询准得多）
@@ -404,7 +404,7 @@ g = gap_check("minimum crop residue retention rate soil carbon threshold", top_p
 | 单篇问答（旧，保留未接前端） | `POST /api/papers/{pid}/chat`（paper_qa）、`POST /api/ask`（kb_agent） |
 | **中英对照 PDF** | `GET/POST /api/papers/{pid}/bilingual`（状态/触发）、`GET .../bilingual/pdf`（Range 回传） |
 
-**图书管理员（webapp/librarian.py，2026-09-29 上线）**——全局侧边栏抽屉 `AgentPanel.vue`（悬浮钮任何页呼出，不跳页）：
+**图书管理员（webapp/librarian.py）**——全局侧边栏抽屉 `AgentPanel.vue`（悬浮钮任何页呼出，不跳页）：
 - 工具：`search_papers`（300 篇暴力打分，完整串>整词>中文2-gram 比例）/ `read_paper`（复用 paper_qa `_fulltext`，带 question 按 2-gram 打分取相关段落）/ `get_stats`
 - 工作区：会话级 paper_ids（store `agentStore`，论文页可一键加入），系统提示常驻清单
 - 问答库：`qa_threads`/`qa_messages`/`qa_fts`；新问题 FTS 检索历史相似问答注入 system（常见问题越用命中越高）；SSE 事件 `meta/tool/delta/done/error`，done.content 幂等替换流式累积
@@ -412,11 +412,11 @@ g = gap_check("minimum crop residue retention rate soil carbon threshold", top_p
 - **跨文献超边的唯一来源是问答（现行）**：超边不按"单篇/跨文献"分两类生产，建库阶段只产单篇局部超边；用户提问后，会话归档时后台线程让 LLM 从问答回答里抽跨文献超边 → `cross_doc_hyperedges`（`qa_msg_id` 记来源，台账 `qa_edge_jobs` 幂等，0 条也记防重复烧 LLM）。约束 ≥3 参与者且 ≥2 篇来源（单篇深读回答正常入 0 条）；入库后即时 embedding（ollama 不可用则 NULL 等 `batch_embeds` 补，检索只取 vector NOT NULL）。
   早前的两条批量路径（`hypergraph/cross_doc.py` 一次性整库产出、`batch_cross_doc.py` 两阶段按合并实体逐组产出 + `import_cross_doc.py` 入库）已下线：产出与成本不成正比，实测库里 0 条来自管线。
 
-**三个坑（都踩过）**：① fts5 默认 unicode61 把中文整段切一个 token，中文查询全部漏 → `_seg()` 自分词（中文2-gram+英文整词）存取同构；② 分词索引必须**应用层双写**（SQL 触发器调不了 Python 分词），且改版时要 `DROP TRIGGER IF EXISTS` 旧触发器——否则它先占 rowid、应用层再插报 `IntegrityError: constraint failed`；③ 验证 SSE/中文数据别用 Windows 侧 Python 读 curl 输出（GBK 解码 UTF-8 会把 500 字撑成 765、打印报错），用 `sys.stdin.buffer.read().decode('utf-8')`。
+**三个必须注意的点**：① fts5 默认 unicode61 把中文整段切一个 token，中文查询全部漏 → `_seg()` 自分词（中文2-gram+英文整词）存取同构；② 分词索引必须**应用层双写**（SQL 触发器调不了 Python 分词），且改版时要 `DROP TRIGGER IF EXISTS` 旧触发器——否则它先占 rowid、应用层再插报 `IntegrityError: constraint failed`；③ 验证 SSE/中文数据别用 Windows 侧 Python 读 curl 输出（GBK 解码 UTF-8 会把 500 字撑成 765、打印报错），用 `sys.stdin.buffer.read().decode('utf-8')`。
 
-**中英对照（2026-09-30 上线，复用 zotero-pdf2zh）**——PdfPane 工具栏「原文｜对照」切换 + 「生成对照」按钮（按需翻译，读到哪篇译哪篇，不预跑全库）：
+**中英对照（复用 zotero-pdf2zh）**——PdfPane 工具栏「原文｜对照」切换 + 「生成对照」按钮（按需翻译，读到哪篇译哪篇，不预跑全库）：
 - **引擎**：外部可选依赖 `pdf2zh_next`（独立 venv）。查找顺序：`config.yaml` 的 `paths.pdf2zh_python` → 仓库内 `.venv-pdf2zh` → `paths.pdf2zh_dirs` 下的 venv；都没配则中英对照按钮不可用。CLI 直调，无需常驻服务；默认免费翻译通道，en→zh-CN，一篇约 6 分钟。上游：https://github.com/Byaidu/PDFMathTranslate
-- **后端**（`webapp/server.py` `_run_bilingual`）：POST 起 daemon 线程 → 拷 `data/translated/{pid}.src.pdf`（ASCII 工作副本，避开中文/长文件名）→ exe 产出 `{pid}.src.no_watermark.zh-CN.dual.pdf` → `replace` 成 `{pid}.zh.pdf` 缓存（二次访问零成本，2026-10-08 起持久化纯中文 mono），中间 mono/工作副本自动清，`{pid}.log` 留排障；pdf2zh 子进程参数走 `_winarg()`（保留作跨平台兼容，Windows 下 no-op）
+- **后端**（`webapp/server.py` `_run_bilingual`）：POST 起 daemon 线程 → 拷 `data/translated/{pid}.src.pdf`（ASCII 工作副本，避开中文/长文件名）→ exe 产出 `{pid}.src.no_watermark.zh-CN.dual.pdf` → `replace` 成 `{pid}.zh.pdf` 缓存（二次访问零成本，持久化纯中文 mono），中间 mono/工作副本自动清，`{pid}.log` 留排障；pdf2zh 子进程参数走 `_winarg()`（保留作跨平台兼容，Windows 下 no-op）
 - **前端**：`bilChecked` 后才渲染控件，2.5s 轮询 running，生成完成自动切到对照版；pid 切换重置状态
 - **实测**：烟测 5m41s 出 8 页 dual，第 2 页 1009 中文字符+英文原文并排
 

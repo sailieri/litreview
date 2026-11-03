@@ -8,11 +8,10 @@
 #   .venv\Scripts\python.exe webapp\mcp_server.py    # MCP server (8791)
 #
 # ⚠️ 不含 pdf2zh_next：中英对照翻译是可选功能，由独立 venv 执行，与本环境无关
-#    安装后把可执行文件路径写进 config.yaml 的 paths.pdf2zh_exe
+#    安装后把可执行文件路径写进 config.yaml 的 paths.pdf2zh_python
 #    上游：https://github.com/Byaidu/PDFMathTranslate
 # ⚠️ mcp 必须锁 <2：2.x 改动了 FastMCP 导入路径，实测 1.30.0 可用
 #
-# 更新：2026-10-12
 
 # ── PDF 解析 ──
 pymupdf==1.28.2              # import fitz

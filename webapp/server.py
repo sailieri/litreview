@@ -1,8 +1,9 @@
 """litread 后端 —— litreview 文献阅读平台（FastAPI，只读 + 单进程托管前端）。
 
-启动（Windows，使用项目自带的 .venv）：
+启动（使用项目自带的 .venv）：
     cd <仓库根>/webapp
-    ../.venv/Scripts/python.exe -m uvicorn server:app --host 0.0.0.0 --port 8790
+    ../.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8790
+    # Windows: ../.venv/Scripts/python.exe -m uvicorn server:app --host 0.0.0.0 --port 8790
 浏览器：http://127.0.0.1:8790（本机）/ http://<本机局域网IP>:8790（局域网共享）
 
 局域网共享：host 必须用 0.0.0.0 才能被其他机器访问 —— 在浏览器打开
@@ -766,6 +767,13 @@ from modules.config import get as _cfg_get  # noqa: E402
 _PDF2ZH_SERVER_DIRS = [Path(str(d)) for d in (_cfg_get("paths.pdf2zh_dirs", []) or [])]
 
 
+def _venv_python(venv_dir: Path) -> Path:
+    """venv 内的解释器：Windows 用 Scripts/python.exe，POSIX 用 bin/python。"""
+    if os.name == "nt":
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
+
+
 def _pdf2zh_paths():
     """PDFMathTranslate-next（pdf2zh_next）驱动入口：venv python + 薄驱动脚本。
 
@@ -777,8 +785,8 @@ def _pdf2zh_paths():
     _explicit = _cfg_get("paths.pdf2zh_python", "")
     if _explicit:
         candidates.append(Path(str(_explicit)))
-    candidates.append(LITROOT / ".venv-pdf2zh" / "Scripts" / "python.exe")
-    candidates += [d / "zotero-pdf2zh-next-venv" / "Scripts" / "python.exe"
+    candidates.append(_venv_python(LITROOT / ".venv-pdf2zh"))
+    candidates += [_venv_python(d / "zotero-pdf2zh-next-venv")
                    for d in _PDF2ZH_SERVER_DIRS]
     for py in candidates:
         if py.exists() and drv.exists():

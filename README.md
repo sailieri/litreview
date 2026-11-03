@@ -52,10 +52,14 @@ python tools/cost_calculator.py --papers 50   # 换成你的篇数；--peak / --
 ## 快速上手
 
 ```bash
+git clone https://github.com/sailieri/litreview.git && cd litreview
 uv venv .venv --python 3.13            # 或 python -m venv .venv
 uv pip install -r requirements.txt     # 国内可加 -i https://pypi.tuna.tsinghua.edu.cn/simple
 cp config.yaml.example config.yaml     # 填入 providers.deepseek.api_key
 ```
+
+> 克隆与后续拉取需能访问 github.com；国内网络通常要挂代理（如 `git -c http.proxy=http://127.0.0.1:7890 clone …`）。
+> 安装与运行不依赖网络，只有调 LLM/Embedding 时才需要出网。
 
 **先建库，再写综述**——空库里跑 `main_agent.py` 什么也做不出来：
 
@@ -77,14 +81,15 @@ python -m modules.kb_agent --q "your question in English"   # 命令行问答（
 
 ```bash
 cd webapp/frontend && npm install && npm run build
-cd .. && ../.venv/Scripts/python.exe -m uvicorn server:app --host 127.0.0.1 --port 8790
+cd ..
+.venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port 8790      # Windows: .venv\Scripts\python.exe
 ```
 
 > 重复入库会被查重闸门拦下（按标题 / DOI / 作者 / 原文指纹四路比对）。确认是误判时加 `--force`
 > 放行（会写审计 `data/dedup_forced.jsonl`）；确认是同一篇就换 `--stem` 复用已有记录。
 
 
-模式 A（一行跑一轮）：
+模式 A（一行跑一轮）。**首次跑之前必须先写 PRD**——`data/reviews/meta/_prd.md`（主题 / 范围边界 / 验收标准），它是撰写阶段唯一的主题真相源；文件不存在时主智能体只会收到一句「（PRD 缺失）」。写法见 `skill/SKILL.md` 第 0 步。
 
 ```bash
 python pipelines/review/main_agent.py --dry-run --round 1     # 先自查：提示词 / PRD / 工具 / 轮次状态
@@ -127,13 +132,13 @@ litreview/
 ├── pipelines/
 │   ├── build/                   # Phase 1 建库：五步入口（extract_pdfs/normalize/extract_hypergraph/index/embeds）
 │   └── review/                  # Phase 2 综述管线（脚本 + 主智能体）
-│   ├── main_agent.py            # 模式 A 入口（--round / --dry-run / --print-kickoff）
-│   ├── main_agent_prompt.md     # ★ 主智能体作业纪律（模式 A 注入 / 模式 B 自读）
-│   ├── kb_qa.py                 # 脚本① 知识库问答（唯一信息通道，登记 [S#] 引用）
-│   ├── probe_draft.py           # 脚本② 独立追问者（内部评审读者）
-│   ├── check_draft.py           # 脚本③ 硬断言（章节/引用/数值溯源/流程自指/长句）
-│   ├── compile_draft.py         # 脚本④ 初稿→成稿（表达层转写；备选路径）
-│   └── review_draft.py          # 脚本⑤ 并行审核 + 轮次推进
+│       ├── main_agent.py        # 模式 A 入口（--round / --dry-run / --print-kickoff）
+│       ├── main_agent_prompt.md # ★ 主智能体作业纪律（模式 A 注入 / 模式 B 自读）
+│       ├── kb_qa.py             # 脚本① 知识库问答（唯一信息通道，登记 [S#] 引用）
+│       ├── probe_draft.py       # 脚本② 独立追问者（内部评审读者）
+│       ├── check_draft.py       # 脚本③ 硬断言（章节/引用/数值溯源/流程自指/长句）
+│       ├── compile_draft.py     # 脚本④ 初稿→成稿（表达层转写；备选路径）
+│       └── review_draft.py      # 脚本⑤ 并行审核 + 轮次推进
 ├── tools/                       # 辅助工具（单篇入库、超图提取、重索引、质量检查、审计…）
 └── data/                        # 运行时产物（不入仓库）：pdfs / normalized / database/papers.db / reviews
 ```

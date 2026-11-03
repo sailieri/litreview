@@ -17,9 +17,9 @@
   - 传输：streamable-http，默认路径 /mcp；绑 0.0.0.0:8791
     （用 MCP_HOST / MCP_PORT 环境变量可覆盖成具体局域网 IP）。
 
-启动（Windows）：
+启动：
     cd <仓库根>/webapp
-    ../.venv/Scripts/python.exe mcp_server.py
+    ../.venv/bin/python mcp_server.py            # Windows: ../.venv/Scripts/python.exe mcp_server.py
 
 别人的客户端配置（pi / Claude Desktop 等）：
     url:     http://<本机局域网IP>:8791/mcp

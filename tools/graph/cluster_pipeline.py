@@ -353,7 +353,8 @@ def main():
             for c in clusters],
     }
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
-    json.dump(out, open(a.out, "w"), ensure_ascii=False)
+    with open(a.out, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False)
     log(f"已写入 {a.out}")
 
 
