@@ -94,6 +94,37 @@ jobs:
           print(f"空库 schema OK：{len(tabs)} 张表，papers 列 {len(cols)} 个")
           PY
 
+      - name: webapp 接口冒烟（空库 + 一篇种子数据）
+        run: |
+          DATA_ROOT="$(mktemp -d)"
+          echo "LITREVIEW_DATA=$DATA_ROOT" >> "$GITHUB_ENV"
+          python - <<'PY'
+          import os, sys
+          sys.path.insert(0, os.getcwd())
+          from modules.database.schema import get_db, init_db
+          c = get_db()
+          init_db(c)
+          c.execute("INSERT INTO papers(title,authors,year,journal,doi,file_path) "
+                    "VALUES('Smoke paper','A',2024,'J','','x.pdf')")
+          c.commit()
+          print("种子数据 ok")
+          PY
+          cd webapp
+          python -m uvicorn server:app --host 127.0.0.1 --port 8799 > /tmp/webapp.log 2>&1 &
+          for _ in $(seq 1 40); do
+            curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8799/api/stats && break
+            sleep 1
+          done
+          fail=0
+          for ep in /api/stats /api/papers /api/papers/1 /api/ingest/overview \
+                    /api/ingest/items /api/ingest/jobs /api/insights /api/facets \
+                    /api/collections /api/agent/threads /api/models/health; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "http://127.0.0.1:8799$ep")
+            echo "$ep -> $code"
+            [ "$code" -lt 400 ] || fail=1
+          done
+          if [ "$fail" -ne 0 ]; then echo "::error::接口冒烟失败"; tail -40 /tmp/webapp.log; exit 1; fi
+
       - name: 敏感信息扫描（仅跟踪文件）
         run: |
           set -e
