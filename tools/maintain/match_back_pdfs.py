@@ -25,8 +25,13 @@ PDFS = pdfs_dir()
 sys.path.insert(0, str(ROOT))
 from modules.paths import db_path  # noqa: E402
 
-try:
-    import fitz  # PyMuPDF
+try:                       # PyMuPDF ≥1.24 同时暴露 pymupdf 与旧名 fitz
+    import pymupdf as fitz  # 用新名，避免 fitz 兼容层的弃用警告
+except ImportError:        # 旧版本只有 fitz
+    try:
+        import fitz
+    except Exception:
+        fitz = None
 except Exception:
     fitz = None
 

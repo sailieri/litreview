@@ -18,7 +18,10 @@ ROOT = next(p for p in Path(__file__).resolve().parents
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-import fitz  # pymupdf
+try:                       # PyMuPDF ≥1.24 同时暴露 pymupdf 与旧名 fitz
+    import pymupdf as fitz  # 用新名，避免 fitz 兼容层的弃用警告
+except ImportError:        # 旧版本只有 fitz
+    import fitz
 import numpy as np
 from modules.paths import extracted_dir, normalized_dir  # noqa: E402
 try:

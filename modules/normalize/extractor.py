@@ -8,7 +8,10 @@ import json
 import os
 from pathlib import Path
 
-import fitz  # pymupdf
+try:                       # PyMuPDF ≥1.24 同时暴露 pymupdf 与旧名 fitz
+    import pymupdf as fitz  # 用新名，避免 fitz 兼容层的弃用警告
+except ImportError:        # 旧版本只有 fitz
+    import fitz
 
 
 def extract_pdf(pdf_path: str, output_dir: str | None = None) -> dict:
