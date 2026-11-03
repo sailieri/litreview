@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import copy
 import os
+import sys
 import re
 from pathlib import Path
 
@@ -130,6 +131,36 @@ _cache: dict | None = None
 _cache_path: Path | None = None
 
 
+# 这些键为空是合法状态（空 = 不启用/不鉴权），不因未设环境变量而报警
+_OPTIONAL_EMPTY = {"webapp.mcp_token", "endpoints.workstation_lan",
+                  "endpoints.workstation_cf", "judge.api_key"}
+
+
+def _warn_unresolved(cfg: dict) -> None:
+    """配置里残留 ${VAR} 说明环境变量没设；早提示，比后面 401 好定位。"""
+    missing: list[str] = []
+
+    def walk(node, path=""):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                walk(v, f"{path}.{k}" if path else str(k))
+        elif isinstance(node, list):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]")
+        elif isinstance(node, str):
+            for m in _ENV_RE.finditer(node):
+                if m.group(2) is None:      # 无默认值 → 原样保留，肯定没展开
+                    if path not in _OPTIONAL_EMPTY:
+                        missing.append(path)
+
+    walk(cfg)
+    if missing:
+        uniq = sorted(set(missing))
+        head = "、".join(uniq[:6]) + (" 等" if len(uniq) > 6 else "")
+        print(f"[config] 警告：{head} 里的 ${{VAR}} 未展开（环境变量未设）；"
+              "请设环境变量或直接写值，否则相关调用会报鉴权失败。", file=sys.stderr)
+
+
 def load(reload: bool = False) -> dict:
     """加载并合并配置（带缓存）。外部改完 config.yaml 可 load(reload=True)。"""
     global _cache, _cache_path
@@ -160,6 +191,7 @@ def load(reload: bool = False) -> dict:
             _set_dotted(merged, dotted, val)
 
     _cache, _cache_path = merged, p
+    _warn_unresolved(merged)
     return merged
 
 
