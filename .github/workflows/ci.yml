@@ -76,6 +76,24 @@ jobs:
           sys.exit(1 if bad else 0)
           PY
 
+      - name: 空库 schema 冒烟
+        run: |
+          python - <<'PY'
+          import os, sys, tempfile
+          sys.path.insert(0, os.getcwd())
+          os.environ["LITREVIEW_DATA"] = tempfile.mkdtemp()
+          from modules.database.schema import get_db, init_db
+          c = get_db()
+          init_db(c)
+          cols = {r[1] for r in c.execute("PRAGMA table_info(papers)")}
+          need = {"summary", "deleted_at"}
+          assert need <= cols, f"papers 缺列: {sorted(need - cols)}"
+          tabs = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          for t in ("entities_merged", "papers", "chunks", "collections"):
+              assert t in tabs, f"缺表: {t}"
+          print(f"空库 schema OK：{len(tabs)} 张表，papers 列 {len(cols)} 个")
+          PY
+
       - name: 敏感信息扫描（仅跟踪文件）
         run: |
           set -e

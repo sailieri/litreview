@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS papers (
     file_path   TEXT DEFAULT '',
     favorite    INTEGER DEFAULT 0,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    summary     TEXT DEFAULT '',       -- 叙事摘要（也可只存 data/summaries/*.json）
+    deleted_at  TIMESTAMP DEFAULT NULL, -- 软删除时间；非空即视为已删除
     entity_count   INTEGER DEFAULT 0,   -- 初始提取的实体数（0=尚未成功提取）
     hyperedge_count INTEGER DEFAULT 0,  -- 初始提取的超边数（0=尚未成功提取）
     ac_rounds      INTEGER DEFAULT 0    -- A-C 增强已完成轮数（每成功一轮 +1）
@@ -197,6 +199,22 @@ CREATE TRIGGER IF NOT EXISTS cross_doc_hyperedges_ad AFTER DELETE ON cross_doc_h
     VALUES ('delete', old.id, old.title, old.description, old.keywords);
 END;
 
+-- ===== 实体合并后的标准实体（merge 步骤写入；此处建空表，
+-- 保证未跑过合并的新库也能被 webapp 的入库总览 / 洞察查询命中）=====
+CREATE TABLE IF NOT EXISTS entities_merged (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT NOT NULL,
+    aliases      TEXT DEFAULT '',
+    type         TEXT DEFAULT '',
+    description  TEXT DEFAULT '',
+    source_ids   TEXT NOT NULL,
+    is_merged    INTEGER DEFAULT 0,
+    vector       BLOB DEFAULT NULL,
+    canonical_id INTEGER DEFAULT NULL,
+    status       TEXT DEFAULT 'active',
+    generation   INTEGER DEFAULT 1
+);
+
 -- ===== 多收藏夹 =====
 -- collections：收藏夹；is_default=1 的是默认夹（夹本身不可删除，可改名）
 -- collection_papers：夹↔论文 多对多，同一篇论文可同时存在于多个夹（主键去重）
@@ -285,11 +303,28 @@ def migrate_id_domains(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_paper_columns(conn: sqlite3.Connection) -> None:
+    """给 papers 补 summary / deleted_at 列（老库升级用，可重复执行）。
+
+    webapp 的入库总览、论文列表都按这两列取数；早期库没有它们，
+    不补会在首次打开「导入」页时报 `no such column: summary`。
+    """
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(papers)")]
+    if not cols:
+        return
+    if "summary" not in cols:
+        conn.execute("ALTER TABLE papers ADD COLUMN summary TEXT DEFAULT ''")
+    if "deleted_at" not in cols:
+        conn.execute("ALTER TABLE papers ADD COLUMN deleted_at TIMESTAMP DEFAULT NULL")
+    conn.commit()
+
+
 def init_db(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
     """Initialize the database schema."""
     if conn is None:
         conn = get_db()
     conn.executescript(SCHEMA_SQL)
+    migrate_paper_columns(conn)
     migrate_id_domains(conn)
     migrate_extraction_tracking(conn)
     migrate_collections(conn)
