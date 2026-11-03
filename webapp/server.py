@@ -205,10 +205,14 @@ def _load_keywords(stem: str) -> list:
 
 @app.get("/api/stats")
 def stats():
+    """库规模。超边按一个概念统计：单篇局部超边 + 对话归档产生的超边（分表存储，不分类展示）。"""
     conn = db()
     out = {}
-    for t in ("papers", "sections", "chunks", "entities", "hyperedges"):
+    for t in ("papers", "sections", "chunks", "entities"):
         out[t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+    out["hyperedges"] = sum(
+        conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        for t in ("hyperedges", "cross_doc_hyperedges"))
     conn.close()
     return out
 
@@ -368,8 +372,11 @@ def insights():
 
     conn = db()
     overview = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-                for t in ("papers", "sections", "chunks", "entities", "hyperedges",
-                          "cross_doc_hyperedges")}
+                for t in ("papers", "sections", "chunks", "entities")}
+    # 超边是一个概念：两张表只是来源不同（建库抽取 / 对话归档），界面合并计数
+    overview["hyperedges"] = sum(
+        conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        for t in ("hyperedges", "cross_doc_hyperedges"))
     yearly = [{"year": str(r["year"]), "count": r["c"]} for r in conn.execute(
         "SELECT year, COUNT(*) AS c FROM papers WHERE year IS NOT NULL AND year != '' "
         "GROUP BY year ORDER BY year").fetchall()]

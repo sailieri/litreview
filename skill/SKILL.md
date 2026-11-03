@@ -221,7 +221,7 @@ python tools/cost_calculator.py --papers 50 --profile current  # 当前 config �
   [ ] 2.5 超图提取 entities/hyperedges：批量入口 batch_extract_all.py（并行 + A-C 2 轮），单篇用 tools/extract/extract_one.py
   [ ] 2.6 A-C 增强（refine，每成功一轮 papers.ac_rounds +1）；**权限：实体 full CRUD，超边仅 ADD+UPDATE、禁 DELETE**（见关键陷阱）
   [ ] 2.7 安全增量入库超图（tools/graph/import_hypergraph.py --paper-id，禁用 import_all）
-  [ ] 2.8 跨文献超图（合并实体两步；跨文献超边由问答增量产生，不在此阶段）
+  [ ] 2.8 跨论文实体合并（超边只有一个概念；问答产生的超边不在此阶段，见 3.x 归档）
         [ ] 2.8.1 实体合并：`tools/graph/cluster_pipeline.py --stage 1`（DBSCAN 分簇）+ `tools/graph/merge_entities.py`（LLM 合并）→ entities_merged（**含 type='paper' 3 条单例**，否则"论文:标题"参与者变孤儿）
         [ ] 2.8.2 实体 ID 双域：两张超边表都存两列——`participants`（私有 entities.id，稳定锚点）+ `participants_merged`（公有 entities_merged.id，派生）。合并跑完由 `merge.py` 自动重算公有列；手工核对用 `doctor.py ids`，重算用 `tools/maintain/sync_id_domains.py --apply`
   [ ] 2.9 向量 embedding + 索引（`pipelines/build/embeds.py`，必须覆盖 chunks + entities_merged + cross_doc_hyperedges）；**须在 2.8 之后跑**，合并实体向量此时才生成
@@ -317,7 +317,7 @@ _archive/                          # 本地归档（不入仓库）：legacy_v1_
 | entities | 单篇超图实体 + 向量（BLOB） |
 | hyperedges | 单篇超边：`participants`=私有 entities.id（锚点）+ `participants_merged`=公有 entities_merged.id（派生，检索用）+ 向量 |
 | entities_merged | 合并后实体 + 向量（BLOB） |
-| cross_doc_hyperedges | 跨文献超边（问答归档时增量产生）+ 同样两列双域 + `qa_msg_id` 溯源 + 向量 |
+| cross_doc_hyperedges | 同一概念的另一来源：对话归档时增量产生（多为跨论文关系）+ 同样两列双域 + `qa_msg_id` 溯源 + 向量 |
 
 FTS5 表使用 `tokenize='unicode61'` 分词器，英文词汇完整匹配。连字符术语（如 `NMC-0.5`）由 `_build_fts_query()` 自动包装为短语查询处理。chunks 表有独立的 `chunks_fts` 内联内容索引。
 
@@ -340,7 +340,7 @@ result = search("LSTM wind power forecasting", top_k_chunks=10, top_k_edges=10)
 chunks = search_chunks("VMD decomposition wind power", top_k=10)
 # → [{chunk_id, paper_id, paper_title, section_title, content, score, vec_score, bm25_score}, ...]
 
-# 只搜超边（默认 top_k=10，便于跨文献超边在 99 条单篇超边中不被挤掉）
+# 只搜超边（默认 top_k=10，便于对话产生的超边在 99 条单篇超边中不被挤掉）
 edges = search_hyperedges("prediction accuracy RMSE MAE", top_k=10)
 # → [{id, scope, participants, participant_names, description, keywords, strength, source_papers, score, vec_score, bm25_score}]
 
@@ -409,7 +409,7 @@ g = gap_check("minimum crop residue retention rate soil carbon threshold", top_p
 - 工作区：会话级 paper_ids（store `agentStore`，论文页可一键加入），系统提示常驻清单
 - 问答库：`qa_threads`/`qa_messages`/`qa_fts`；新问题 FTS 检索历史相似问答注入 system（常见问题越用命中越高）；SSE 事件 `meta/tool/delta/done/error`，done.content 幂等替换流式累积
 - LLM：复用 `config.yaml` 的 `paper_qa` step（qwen-plus），流式 tool_calls 分片同 paper_qa
-- **跨文献超边的唯一来源是问答（现行）**：超边不按"单篇/跨文献"分两类生产，建库阶段只产单篇局部超边；用户提问后，会话归档时后台线程让 LLM 从问答回答里抽跨文献超边 → `cross_doc_hyperedges`（`qa_msg_id` 记来源，台账 `qa_edge_jobs` 幂等，0 条也记防重复烧 LLM）。约束 ≥3 参与者且 ≥2 篇来源（单篇深读回答正常入 0 条）；入库后即时 embedding（ollama 不可用则 NULL 等 `batch_embeds` 补，检索只取 vector NOT NULL）。
+- **超边只有一个概念，来源有两种**：建库阶段只抽单篇局部超边（写 `hyperedges`）；用户提问后，会话归档时后台线程让 LLM 从问答回答里再抽一批（写 `cross_doc_hyperedges`，多为跨论文关系，`qa_msg_id` 记来源，台账 `qa_edge_jobs` 幂等，0 条也记防重复烧 LLM）。界面与统计把它们合并成一个「超边」数。约束 ≥3 参与者且 ≥2 篇来源（单篇深读回答正常入 0 条）；入库后即时 embedding（ollama 不可用则 NULL 等 `batch_embeds` 补，检索只取 vector NOT NULL）。
   早前的两条批量路径（`hypergraph/cross_doc.py` 一次性整库产出、`batch_cross_doc.py` 两阶段按合并实体逐组产出 + `import_cross_doc.py` 入库）已下线：产出与成本不成正比，实测库里 0 条来自管线。
 
 **三个必须注意的点**：① fts5 默认 unicode61 把中文整段切一个 token，中文查询全部漏 → `_seg()` 自分词（中文2-gram+英文整词）存取同构；② 分词索引必须**应用层双写**（SQL 触发器调不了 Python 分词），且改版时要 `DROP TRIGGER IF EXISTS` 旧触发器——否则它先占 rowid、应用层再插报 `IntegrityError: constraint failed`；③ 验证 SSE/中文数据别用 Windows 侧 Python 读 curl 输出（GBK 解码 UTF-8 会把 500 字撑成 765、打印报错），用 `sys.stdin.buffer.read().decode('utf-8')`。

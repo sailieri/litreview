@@ -390,8 +390,8 @@ def tool_get_stats() -> tuple[str, list[dict]]:
             "SELECT journal, COUNT(*) n FROM papers WHERE journal IS NOT NULL "
             "AND journal != '' GROUP BY journal ORDER BY n DESC LIMIT 12")]
         n_ent = conn.execute("SELECT COUNT(*) c FROM entities").fetchone()["c"]
-        n_he = conn.execute("SELECT COUNT(*) c FROM hyperedges").fetchone()["c"]
-        n_cd = conn.execute("SELECT COUNT(*) c FROM cross_doc_hyperedges").fetchone()["c"]
+        n_he = (conn.execute("SELECT COUNT(*) c FROM hyperedges").fetchone()["c"]
+                + conn.execute("SELECT COUNT(*) c FROM cross_doc_hyperedges").fetchone()["c"])
         n_sec = conn.execute("SELECT COUNT(*) c FROM sections").fetchone()["c"]
         stems = [r["file_path"] for r in conn.execute("SELECT file_path FROM papers")]
     finally:
@@ -412,7 +412,7 @@ def tool_get_stats() -> tuple[str, list[dict]]:
         pass
     lines = [
         f"论文总数 {total}（其中可打开 PDF 约 {pdf} 篇）",
-        f"实体 {n_ent} 个，单篇超边 {n_he} 条，跨文献超边 {n_cd} 条，章节 {n_sec} 节",
+        f"实体 {n_ent} 个，超边 {n_he} 条，章节 {n_sec} 节",
         "年份分布：" + "，".join(f"{r['year']}年 {r['n']}篇" for r in years[:15]),
         "期刊 Top：" + "，".join(
             f"{(r['journal'] or '')[:30]}({r['n']})" for r in journals),

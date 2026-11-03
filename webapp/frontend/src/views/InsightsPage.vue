@@ -108,8 +108,7 @@ const cards = computed(() => {
   return [
     { k: '论文', v: o.papers }, { k: '章节', v: o.sections },
     { k: '文本分块', v: o.chunks }, { k: '实体', v: o.entities },
-    { k: '超边（单篇）', v: o.hyperedges },
-    { k: '跨文献超边', v: o.cross_doc_hyperedges },
+    { k: '超边', v: o.hyperedges },
   ]
 })
 const journals10 = computed(() => (data.value?.journals || []).slice(0, 10))

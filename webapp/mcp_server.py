@@ -4,7 +4,7 @@
   - 前端（Vue）给人用，MCP 给智能体用，两者共用同一套业务逻辑与同一个数据库。
   - 工具实现直接复用 librarian.tool_* 与 retriever.* —— 与前端内置智能体
     用同一份检索/读取代码，绝不另写一套（否则两边结果会漂移）。
-  - 10 个只读工具：论文检索 / 原文阅读 / 库统计 + 跨文献超边 + 三路融合 RAG +
+  - 10 个只读工具：论文检索 / 原文阅读 / 库统计 + 超边检索 + 三路融合 RAG +
     全库列表 / 论文详情 / 章节阅读 + 网页上传地址 / 入库进度。不提供 SQL 直查（对外分享的注入/资源风险）。
   - 会写数据的 1 个：ask_librarian（与图书管理员连续对话）—— HTTP
     转发给 webapp 的 /api/agent/chat，让 webapp 当唯一写入口，避免两个进程同时写
@@ -135,7 +135,7 @@ SERVER_VERSION = "1.3.0"
 
 INSTRUCTIONS = (
     "litread 文献库（本地文献库）工具集。"
-    "用途：帮用户找/挑论文、读原文或指定章节、查跨文献知识关系、汇报库统计、"
+    "用途：帮用户找/挑论文、读原文或指定章节、查知识关系（超边）、汇报库统计、"
     "以及与「图书管理员」连续对话（ask_librarian，用返回的 thread_id 续接同一会话）。"
     "【上传新论文 PDF 不在本工具集内】——智能体无法搬运文件（不同智能体对本地"
     "文件的访问权限也不一致）。用户要上传时，先调 get_litread_web_url() 拿到网页"
@@ -211,12 +211,12 @@ def get_stats() -> str:
     return text
 
 
-# ── 4：跨文献超边（论文间的知识关系）────────────────────────────
+# ── 4：超边检索（知识关系；按来源分两张表，对外统一称超边）──────
 
 @mcp.tool()
 def search_hyperedges(query: str, top_k: int = 6, scope: str = "cross_doc") -> str:
-    """检索「跨文献知识关系」（超边）——回答「X 与 Y 有什么联系」
-    「哪些论文对比过方法 Z」「谁和谁得出了相反结论」这类论文间关系问题。
+    """检索超边（知识关系）——回答「X 与 Y 有什么联系」
+    「哪些论文对比过方法 Z」「谁和谁得出了相反结论」这类关系问题。
 
     每条结果给出一组相关概念（已按合并后的标准实体名归一）、一句话结论
     （含关键数值与论文编号）、涉及论文与关系强度。
@@ -224,22 +224,22 @@ def search_hyperedges(query: str, top_k: int = 6, scope: str = "cross_doc") -> s
     Args:
         query: 关系主题，如「地形对 GEDI 精度的影响」
         top_k: 返回条数，默认 6，最大 12
-        scope: 检索范围。默认 "cross_doc"（只跨文献，推荐）；
-            传 "paper" 只看单篇内部超边；传 "all" 两者都查（单篇量极大，
-            跨文献关系容易被淹没）
+        scope: 来源过滤。默认 "cross_doc" = 对话归档产生的超边（多为跨论文关系，条数少、信息密度高）；
+            传 "paper" = 建库时从单篇抽取的超边；传 "all" = 两者都查（单篇量极大，
+            对话产生的超边容易被淹没）
     """
     sc = scope if scope in ("cross_doc", "paper", "all") else "cross_doc"
     rs = _rt().search_hyperedges(query, top_k=max(1, min(int(top_k), 12)),
                                  scope=sc)
     if not rs:
-        return "库中未见与该主题相关的跨文献关系。"
+        return "库中未见与该主题相关的超边。"
     out = []
     for r in rs:
         names = r.get("participant_names") or []
         papers = r.get("source_papers") or []
         out.append(
             "【%s】%s\n  相关概念：%s\n  涉及论文：%s\n  结论：%s\n  强度：%s"
-            % ("跨文献" if r.get("scope") == "cross_doc" else "单篇",
+            % ("对话归档" if r.get("scope") == "cross_doc" else "单篇抽取",
                (r.get("title") or "").strip() or "(无标题)",
                " / ".join(names[:6]) or "—",
                " ".join("#%s" % p for p in papers[:10]) or "—",
@@ -253,7 +253,7 @@ def search_hyperedges(query: str, top_k: int = 6, scope: str = "cross_doc") -> s
 
 @mcp.tool()
 def hyper_rag(query: str, top_k_chunks: int = 8, top_k_edges: int = 5) -> str:
-    """三路融合检索（全文分块 BM25 + 向量 + 跨文献超边）——需要综合回答时的首选。
+    """三路融合检索（全文分块 BM25 + 向量 + 超边）——需要综合回答时的首选。
 
     比单看论文标题（search_papers）深得多：直接返回原文片段与相关知识关系。
 
@@ -282,7 +282,7 @@ def hyper_rag(query: str, top_k_chunks: int = 8, top_k_edges: int = 5) -> str:
                          % ((e.get("title") or e.get("description") or "")[:200],
                             " / ".join((e.get("participant_names") or [])[:6]),
                             " ".join("#%s" % p for p in (e.get("source_papers") or [])[:8])))
-        parts.append("【跨文献关系】\n" + "\n".join(lines))
+        parts.append("【超边（对话归档）】\n" + "\n".join(lines))
     return "\n\n".join(parts) or "库中未见相关内容。"
 
 
