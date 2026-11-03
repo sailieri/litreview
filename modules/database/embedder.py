@@ -36,6 +36,7 @@ for _u in _cands:
     if _u and _u not in EMBED_CANDIDATES:
         EMBED_CANDIDATES.append(_u)
 _working_url: str | None = None
+_warned_no_endpoint = False
 EMBED_MODEL = _embed_cfg.get("model", "")
 EMBED_DIM = _embed_cfg.get("dim", 1024)
 EMBED_API_KEY = _embed_cfg.get("api_key", "")
@@ -117,23 +118,33 @@ def compute_embedding(text: str) -> list[float] | None:
         List of 1024 floats, or None on failure.
     """
     import httpx
-    global _working_url
+    global _working_url, _warned_no_endpoint
     order = ([_working_url] if _working_url else []) + [u for u in EMBED_CANDIDATES if u != _working_url]
+    if not order:
+        if not _warned_no_endpoint:
+            _warned_no_endpoint = True
+            print("  [embed] 未配置 embedding 端点（config.yaml 的 embedding.base_url 与 candidates 均为空），"
+                  "跳过向量化；检索仍可跑，但只剩关键词召回。", file=sys.stderr)
+        return None
     last_err = None
     for base in order:
         try:
             # trust_env=False：不读系统代理，避免请求被本地代理劫持
             with httpx.Client(timeout=30, trust_env=False) as cl:
+                headers = {}
+                if EMBED_API_KEY:  # 本地 Ollama 常不鉴权，空 key 会拼成 "Bearer " 被 httpx 拒绝
+                    headers["Authorization"] = f"Bearer {EMBED_API_KEY}"
                 resp = cl.post(
                     f"{base}/api/embed",
                     json={"model": EMBED_MODEL, "input": [text]},
-                    headers={"Authorization": f"Bearer {EMBED_API_KEY}"},
+                    headers=headers,
                 )
                 resp.raise_for_status()
                 embeddings = resp.json().get("embeddings", [])
                 if embeddings:
                     _working_url = base
                     return embeddings[0]
+                last_err = RuntimeError(f"{base} 返回空向量（检查 embedding.model={EMBED_MODEL!r} 是否已安装）")
         except Exception as e:
             last_err = e
             continue

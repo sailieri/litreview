@@ -147,9 +147,10 @@ def call_llm(messages: list[dict], cfg: dict, max_tokens: int = 8192,
     timeout = cfg.get("params", {}).get("timeout", 300)
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    if api_key:  # 本地推理端点（Ollama / vLLM）常不设鉴权，空 key 不能拼成 "Bearer "
+        headers["Authorization"] = f"Bearer {api_key}"
     payload = {
         "model": model,
         "messages": messages,

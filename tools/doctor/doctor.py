@@ -22,6 +22,9 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = Path(__file__).resolve().parent
+ROOT = next(p for p in Path(__file__).resolve().parents
+            if (p / "modules" / "paths.py").exists())
+sys.path.insert(0, str(ROOT))
 
 SUBCOMMANDS = {
     "health": ("health_check.py", "全库健康检查"),
@@ -50,6 +53,15 @@ def main(argv):
     if not script.exists():
         print(f"[ERR] 找不到 {script}")
         return 1
+    # 需要数据库的子命令：库还没建时给出可执行的下一步，而不是甩一句 sqlite3 堆栈
+    if sub in {"health", "graph", "smoke", "status", "ids"}:
+        from modules.paths import db_path
+        db = db_path()
+        if not db.exists():
+            print(f"[ERR] 库文件不存在：{db}")
+            print("      还没有建库。先入库一篇，再回来体检：")
+            print("      python tools/ingest/ingest_paper.py 你的论文.pdf --stem My2024_Keyword")
+            return 1
     return subprocess.run([sys.executable, str(script), *argv[2:]]).returncode
 
 
